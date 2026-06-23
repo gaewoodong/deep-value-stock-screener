@@ -1041,31 +1041,71 @@ def calculate_period_return(data, trading_days: int) -> float | None:
     return ((current_price / previous_price) - 1) * 100
 
 
+def extract_fast_info_value(fast_info, keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        try:
+            value = fast_info.get(key) if hasattr(fast_info, "get") else getattr(fast_info, key, None)
+        except Exception:
+            value = None
+
+        if value is None:
+            continue
+
+        try:
+            if pd.isna(value):
+                continue
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+
+    return None
+
+
 @st.cache_data
 def load_market_snapshot(tickers: tuple[str, ...]) -> dict[str, dict[str, float | None]]:
     snapshots = {}
 
     for ticker in tickers:
+        current_price = None
+        previous_price = None
+
         try:
-            data = yf.download(
-                ticker,
-                period="5d",
-                interval="1d",
-                progress=False,
-                auto_adjust=False,
-                threads=False,
+            ticker_obj = yf.Ticker(ticker)
+            fast_info = ticker_obj.fast_info
+            current_price = extract_fast_info_value(
+                fast_info,
+                ("last_price", "lastPrice", "regularMarketPrice"),
+            )
+            previous_price = extract_fast_info_value(
+                fast_info,
+                ("previous_close", "previousClose", "regularMarketPreviousClose"),
             )
         except Exception:
-            snapshots[ticker] = {"price": None, "change": None}
-            continue
+            current_price = None
+            previous_price = None
 
-        close = get_price_column(data, "Close") if data is not None and not data.empty else None
-        if close is None or len(close) < 2:
-            snapshots[ticker] = {"price": None, "change": None}
-            continue
+        if current_price is None or previous_price is None:
+            try:
+                data = yf.download(
+                    ticker,
+                    period="5d",
+                    interval="1d",
+                    progress=False,
+                    auto_adjust=False,
+                    threads=False,
+                )
+            except Exception:
+                snapshots[ticker] = {"price": None, "change": None}
+                continue
 
-        current_price = float(close.iloc[-1])
-        previous_price = float(close.iloc[-2])
+            close = get_price_column(data, "Close") if data is not None and not data.empty else None
+            if close is None or len(close) < 2:
+                snapshots[ticker] = {"price": None, "change": None}
+                continue
+
+            current_price = float(close.iloc[-1])
+            previous_price = float(close.iloc[-2])
+
         change = ((current_price / previous_price) - 1) * 100 if previous_price else None
         snapshots[ticker] = {"price": current_price, "change": change}
 
