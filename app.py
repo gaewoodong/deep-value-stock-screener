@@ -310,6 +310,23 @@ def apply_design_system_styles() -> None:
             --brand-error: #c64545;
         }
 
+        #MainMenu,
+        footer,
+        header,
+        [data-testid="stHeader"],
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"],
+        [data-testid="manage-app-button"],
+        [data-testid="stDeployButton"],
+        .stAppDeployButton,
+        a[href*="streamlit.io/cloud"],
+        a[href*="github.com"] {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+        }
+
         .stApp {
             background: var(--brand-canvas);
             color: var(--brand-body);
