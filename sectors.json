@@ -1,0 +1,154 @@
+{
+  "Semi_Fabless": [
+    "NVDA",
+    "097520.KQ"
+  ],
+  "Semi_Foundry": [
+    "TSM",
+    "000990.KS"
+  ],
+  "Semi_IDM": [
+    "MU",
+    "005930.KS",
+    "000660.KS"
+  ],
+  "Semi_OSAT_Substrate": [
+    "AMKR",
+    "353200.KS"
+  ],
+  "Semi_Equipment": [
+    "AMAT",
+    "042700.KS"
+  ],
+  "AI_Infrastructure_Cloud": [
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "AAPL",
+    "ORCL"
+  ],
+  "AI_Hardware_Server": [
+    "SMCI",
+    "AVGO"
+  ],
+  "AI_Power_Cooling": [
+    "VRT",
+    "ETN"
+  ],
+  "AI_Data_Platform": [
+    "PLTR",
+    "SNOW"
+  ],
+  "AI_Service_SaaS": [
+    "NOW",
+    "CRM"
+  ],
+  "REITs_Portfolio": [
+    "EQIX",
+    "PLD",
+    "O",
+    "AMT",
+    "VICI"
+  ],
+  "Metals_Mining": [
+    "NEM",
+    "PAAS",
+    "FCX"
+  ],
+  "Metals_Royalty": [
+    "FNV",
+    "WPM",
+    "RGLD"
+  ],
+  "Metals_ETF": [
+    "GLD",
+    "SLV",
+    "CPER"
+  ],
+  "Staples_Food_Beverage": [
+    "KO",
+    "PEP"
+  ],
+  "Staples_Household": [
+    "PG"
+  ],
+  "Staples_Tobacco": [
+    "PM"
+  ],
+  "Staples_Retail": [
+    "WMT"
+  ],
+  "Financials_Commercial": [
+    "JPM"
+  ],
+  "Financials_IB_Asset": [
+    "MS",
+    "BLK"
+  ],
+  "Financials_Payments": [
+    "V",
+    "MA"
+  ],
+  "Healthcare_Service_Platform": [
+    "UNH",
+    "328130.KQ"
+  ],
+  "Healthcare_Pharma": [
+    "JNJ",
+    "LLY",
+    "068270.KS",
+    "000100.KS"
+  ],
+  "Healthcare_Devices": [
+    "ISRG",
+    "MDT",
+    "214150.KQ",
+    "145720.KS"
+  ],
+  "Healthcare_Tools_Service": [
+    "TMO",
+    "207940.KS"
+  ],
+  "Energy_Integrated": [
+    "XOM",
+    "CVX",
+    "096770.KS"
+  ],
+  "Energy_Midstream": [
+    "ENB",
+    "EPD"
+  ],
+  "Energy_Downstream": [
+    "VLO",
+    "010950.KS"
+  ],
+  "Energy_Utility_Power": [
+    "NEE",
+    "015760.KS"
+  ],
+  "Energy_Nuclear_Uranium": [
+    "CEG",
+    "VST",
+    "CCJ",
+    "034020.KS"
+  ],
+  "Gaming_Entertainment": [
+    "TTWO",
+    "RBLX"
+  ],
+  "Aerospace_Defense": [
+    "LMT",
+    "RTX",
+    "012450.KS"
+  ],
+  "Travel_Leisure": [
+    "BKNG",
+    "MAR"
+  ],
+  "Industrials_Infra": [
+    "CAT",
+    "DE"
+  ]
+}
+
