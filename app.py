@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
 import json
+import re
 import time
 from pathlib import Path
 from urllib.parse import quote_plus
@@ -20,6 +22,16 @@ except ImportError:
 
 
 SECTORS_PATH = Path(__file__).with_name("sectors.json")
+USERS_PATH = Path(__file__).with_name("users.json")
+KOREAN_NEWS_LOOKBACK_DAYS = 14
+SUPER_ADMIN_ID = "junsubi05"
+DEFAULT_USERS = {
+    SUPER_ADMIN_ID: {
+        "name": "최고관리자",
+        "password": "legolego1234@",
+        "approved": True,
+    }
+}
 CATEGORY_MAP = {
     "🖥️ 반도체 밸류체인": [
         "Semi_Fabless",
@@ -109,6 +121,171 @@ THEME_KOR_MAP = {
     "Industrials_Infra": "산업재·인프라",
 }
 COMPANY_NAME_MAP = {
+    "AAPL": "Apple / 애플",
+    "AMAT": "Applied Materials / 어플라이드 머티어리얼즈",
+    "AMKR": "Amkor Technology / 앰코 테크놀로지",
+    "AMT": "American Tower / 아메리칸 타워",
+    "AMZN": "Amazon / 아마존",
+    "AVGO": "Broadcom / 브로드컴",
+    "BKNG": "Booking Holdings / 부킹 홀딩스",
+    "BLK": "BlackRock / 블랙록",
+    "CAT": "Caterpillar / 캐터필러",
+    "CCJ": "Cameco / 카메코",
+    "CEG": "Constellation Energy / 컨스텔레이션 에너지",
+    "CPER": "United States Copper Index Fund / 미국 구리 ETF",
+    "CRM": "Salesforce / 세일즈포스",
+    "CVX": "Chevron / 셰브론",
+    "DE": "Deere & Company / 디어",
+    "ENB": "Enbridge / 엔브리지",
+    "EPD": "Enterprise Products Partners / 엔터프라이즈 프로덕츠 파트너스",
+    "EQIX": "Equinix / 에퀴닉스",
+    "ETN": "Eaton / 이튼",
+    "FCX": "Freeport-McMoRan / 프리포트 맥모란",
+    "FNV": "Franco-Nevada / 프랑코 네바다",
+    "GLD": "SPDR Gold Shares / 금 ETF",
+    "GOOGL": "Alphabet / 알파벳",
+    "ISRG": "Intuitive Surgical / 인튜이티브 서지컬",
+    "JNJ": "Johnson & Johnson / 존슨앤드존슨",
+    "JPM": "JPMorgan Chase / JP모건 체이스",
+    "KO": "Coca-Cola / 코카콜라",
+    "LLY": "Eli Lilly / 일라이 릴리",
+    "LMT": "Lockheed Martin / 록히드 마틴",
+    "MA": "Mastercard / 마스터카드",
+    "MAR": "Marriott International / 메리어트 인터내셔널",
+    "MDT": "Medtronic / 메드트로닉",
+    "META": "Meta Platforms / 메타 플랫폼스",
+    "MS": "Morgan Stanley / 모건스탠리",
+    "MSFT": "Microsoft / 마이크로소프트",
+    "MU": "Micron Technology / 마이크론 테크놀로지",
+    "NEE": "NextEra Energy / 넥스트에라 에너지",
+    "NEM": "Newmont / 뉴몬트",
+    "NOW": "ServiceNow / 서비스나우",
+    "NVDA": "NVIDIA / 엔비디아",
+    "O": "Realty Income / 리얼티 인컴",
+    "ORCL": "Oracle / 오라클",
+    "PAAS": "Pan American Silver / 팬 아메리칸 실버",
+    "PEP": "PepsiCo / 펩시코",
+    "PG": "Procter & Gamble / 프록터앤드갬블",
+    "PLD": "Prologis / 프로로지스",
+    "PLTR": "Palantir / 팔란티어",
+    "PM": "Philip Morris International / 필립모리스 인터내셔널",
+    "RBLX": "Roblox / 로블록스",
+    "RGLD": "Royal Gold / 로열 골드",
+    "RTX": "RTX / RTX",
+    "SLV": "iShares Silver Trust / 은 ETF",
+    "SMCI": "Super Micro Computer / 슈퍼마이크로컴퓨터",
+    "SNOW": "Snowflake / 스노우플레이크",
+    "TMO": "Thermo Fisher Scientific / 써모 피셔 사이언티픽",
+    "TSM": "Taiwan Semiconductor Manufacturing / TSMC",
+    "TTWO": "Take-Two Interactive / 테이크투 인터랙티브",
+    "UNH": "UnitedHealth Group / 유나이티드헬스 그룹",
+    "V": "Visa / 비자",
+    "VICI": "VICI Properties / 비치 프로퍼티스",
+    "VLO": "Valero Energy / 발레로 에너지",
+    "VRT": "Vertiv / 버티브",
+    "VST": "Vistra / 비스트라",
+    "WMT": "Walmart / 월마트",
+    "WPM": "Wheaton Precious Metals / 휘튼 프레셔스 메탈스",
+    "XOM": "Exxon Mobil / 엑슨모빌",
+    "A": "Agilent Technologies / 애질런트 테크놀로지스",
+    "ABBV": "AbbVie / 애브비",
+    "ABNB": "Airbnb / 에어비앤비",
+    "ABT": "Abbott Laboratories / 애보트 래버러토리스",
+    "ADBE": "Adobe / 어도비",
+    "AEM": "Agnico Eagle Mines / 아그니코 이글 마인스",
+    "AEP": "American Electric Power / 아메리칸 일렉트릭 파워",
+    "AMD": "Advanced Micro Devices / AMD",
+    "ANET": "Arista Networks / 아리스타 네트웍스",
+    "ARM": "Arm Holdings / 암 홀딩스",
+    "ASML": "ASML Holding / ASML",
+    "ASX": "ASE Technology / ASE 테크놀로지",
+    "AXP": "American Express / 아메리칸 익스프레스",
+    "BA": "Boeing / 보잉",
+    "BAC": "Bank of America / 뱅크오브아메리카",
+    "BP": "BP / BP",
+    "BSX": "Boston Scientific / 보스턴 사이언티픽",
+    "BTI": "British American Tobacco / 브리티시 아메리칸 토바코",
+    "BX": "Blackstone / 블랙스톤",
+    "C": "Citigroup / 씨티그룹",
+    "CARR": "Carrier Global / 캐리어 글로벌",
+    "CHD": "Church & Dwight / 처치앤드와이트",
+    "CI": "Cigna Group / 시그나 그룹",
+    "CL": "Colgate-Palmolive / 콜게이트 팜올리브",
+    "CLX": "Clorox / 클로락스",
+    "CNC": "Centene / 센틴",
+    "COST": "Costco Wholesale / 코스트코",
+    "DDOG": "Datadog / 데이터독",
+    "DELL": "Dell Technologies / 델 테크놀로지스",
+    "DG": "Dollar General / 달러 제너럴",
+    "DHR": "Danaher / 다나허",
+    "DK": "Delek US Holdings / 델렉 US 홀딩스",
+    "DUK": "Duke Energy / 듀크 에너지",
+    "EA": "Electronic Arts / 일렉트로닉 아츠",
+    "ELV": "Elevance Health / 엘리번스 헬스",
+    "EXC": "Exelon / 엑셀론",
+    "EXPE": "Expedia Group / 익스피디아 그룹",
+    "FI": "Fiserv / 파이서브",
+    "GD": "General Dynamics / 제너럴 다이내믹스",
+    "GDX": "VanEck Gold Miners ETF / 금광주 ETF",
+    "GE": "GE Aerospace / GE 에어로스페이스",
+    "GFS": "GlobalFoundries / 글로벌파운드리스",
+    "GOLD": "Barrick Gold / 배릭 골드",
+    "GS": "Goldman Sachs / 골드만삭스",
+    "HLT": "Hilton Worldwide / 힐튼 월드와이드",
+    "HON": "Honeywell / 허니웰",
+    "HPE": "Hewlett Packard Enterprise / 휴렛팩커드 엔터프라이즈",
+    "HUM": "Humana / 휴매나",
+    "IAU": "iShares Gold Trust / 금 ETF",
+    "IMBBY": "Imperial Brands / 임페리얼 브랜즈",
+    "INTC": "Intel / 인텔",
+    "INTU": "Intuit / 인튜이트",
+    "IQV": "IQVIA / 아이큐비아",
+    "JAPAF": "Japan Tobacco / 재팬 토바코",
+    "JCI": "Johnson Controls / 존슨 컨트롤즈",
+    "KDP": "Keurig Dr Pepper / 큐리그 닥터페퍼",
+    "KKR": "KKR / KKR",
+    "KLAC": "KLA / KLA",
+    "KMB": "Kimberly-Clark / 킴벌리클라크",
+    "KMI": "Kinder Morgan / 킨더 모건",
+    "KR": "Kroger / 크로거",
+    "LEU": "Centrus Energy / 센트러스 에너지",
+    "LRCX": "Lam Research / 램 리서치",
+    "MDB": "MongoDB / 몽고DB",
+    "MDLZ": "Mondelez International / 몬델리즈 인터내셔널",
+    "MNST": "Monster Beverage / 몬스터 베버리지",
+    "MO": "Altria / 알트리아",
+    "MPC": "Marathon Petroleum / 마라톤 페트롤리엄",
+    "MRK": "Merck / 머크",
+    "MRVL": "Marvell Technology / 마벨 테크놀로지",
+    "NET": "Cloudflare / 클라우드플레어",
+    "NOC": "Northrop Grumman / 노스럽 그러먼",
+    "NTDOY": "Nintendo / 닌텐도",
+    "PBF": "PBF Energy / PBF 에너지",
+    "PFE": "Pfizer / 화이자",
+    "PSX": "Phillips 66 / 필립스 66",
+    "PYPL": "PayPal / 페이팔",
+    "QCOM": "Qualcomm / 퀄컴",
+    "SAND": "Sandstorm Gold / 샌드스톰 골드",
+    "SHEL": "Shell / 쉘",
+    "SO": "Southern Company / 서던 컴퍼니",
+    "SONY": "Sony Group / 소니 그룹",
+    "SYK": "Stryker / 스트라이커",
+    "TEL": "TE Connectivity / TE 커넥티비티",
+    "TFPM": "Triple Flag Precious Metals / 트리플 플래그 프레셔스 메탈스",
+    "TGT": "Target / 타깃",
+    "TRP": "TC Energy / TC 에너지",
+    "TT": "Trane Technologies / 트레인 테크놀로지스",
+    "TTE": "TotalEnergies / 토탈에너지스",
+    "TXN": "Texas Instruments / 텍사스 인스트루먼트",
+    "UEC": "Uranium Energy / 우라늄 에너지",
+    "UMC": "United Microelectronics / UMC",
+    "USB": "U.S. Bancorp / US 뱅코프",
+    "WAT": "Waters / 워터스",
+    "WDAY": "Workday / 워크데이",
+    "WFC": "Wells Fargo / 웰스파고",
+    "WMB": "Williams Companies / 윌리엄스 컴퍼니스",
+    "009150.KS": "삼성전기",
+    "3711.TW": "ASE Technology Holding / ASE 테크놀로지 홀딩",
     "000100.KS": "유한양행",
     "000660.KS": "SK하이닉스",
     "000990.KS": "DB하이텍",
@@ -189,6 +366,54 @@ def load_sectors() -> dict[str, list[str]]:
         return json.load(file)
 
 
+def load_users() -> dict[str, dict[str, str | bool]]:
+    if not USERS_PATH.exists():
+        save_users(DEFAULT_USERS)
+        return DEFAULT_USERS.copy()
+
+    try:
+        with USERS_PATH.open("r", encoding="utf-8") as file:
+            users = json.load(file)
+    except (json.JSONDecodeError, OSError):
+        users = {}
+
+    if not isinstance(users, dict):
+        users = {}
+
+    changed = False
+    for user_id, default_profile in DEFAULT_USERS.items():
+        if user_id not in users:
+            users[user_id] = default_profile.copy()
+            changed = True
+
+    normalized_users = {}
+    for user_id, profile in users.items():
+        if not isinstance(profile, dict):
+            continue
+        normalized_users[str(user_id)] = {
+            "name": str(profile.get("name", "")),
+            "password": str(profile.get("password", "")),
+            "approved": bool(profile.get("approved", False)),
+        }
+
+    if changed or normalized_users != users:
+        save_users(normalized_users)
+
+    return normalized_users
+
+
+def save_users(users: dict[str, dict[str, str | bool]]) -> None:
+    with USERS_PATH.open("w", encoding="utf-8") as file:
+        json.dump(users, file, ensure_ascii=False, indent=2)
+
+
+def rerun_app() -> None:
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
+
+
 def format_theme_name(theme: str) -> str:
     return THEME_KOR_MAP.get(theme, theme)
 
@@ -202,6 +427,21 @@ def format_ticker_label(ticker: str) -> str:
     return f"{company_name} ({ticker})" if company_name != ticker else ticker
 
 
+def is_korean_ticker(ticker: str) -> bool:
+    return ticker.endswith((".KS", ".KQ"))
+
+
+def has_hangul(text: str) -> bool:
+    return any("가" <= character <= "힣" for character in str(text))
+
+
+def get_company_search_name(ticker: str) -> str:
+    company_name = format_ticker_name(ticker)
+    if "/" in company_name:
+        company_name = company_name.split("/")[-1]
+    return company_name.strip() or ticker.replace(".KS", "").replace(".KQ", "")
+
+
 def flatten_tickers(sectors: dict[str, list[str]]) -> list[dict[str, str]]:
     return [
         {
@@ -212,6 +452,44 @@ def flatten_tickers(sectors: dict[str, list[str]]) -> list[dict[str, str]]:
         for theme, tickers in sectors.items()
         for ticker in tickers
     ]
+
+
+def build_screening_records(sectors: dict[str, list[str]]) -> list[dict[str, str | int | None]]:
+    records: list[dict[str, str | int | None]] = []
+    record_index: dict[tuple[str, str], int] = {}
+
+    for theme, tickers in sectors.items():
+        for ticker in tickers:
+            key = (ticker, theme)
+            record_index[key] = len(records)
+            records.append(
+                {
+                    "ticker": ticker,
+                    "theme": theme,
+                    "source": "앱 편입 종목",
+                    "leader_rank": None,
+                }
+            )
+
+    for theme in sectors:
+        for rank, ticker in enumerate(TOP_THEME_PEERS.get(theme, [])[:3], start=1):
+            key = (ticker, theme)
+            if key in record_index:
+                records[record_index[key]]["source"] = "앱 편입 종목 + 테마 대표 Top3"
+                records[record_index[key]]["leader_rank"] = rank
+                continue
+
+            record_index[key] = len(records)
+            records.append(
+                {
+                    "ticker": ticker,
+                    "theme": theme,
+                    "source": "테마 대표 Top3",
+                    "leader_rank": rank,
+                }
+            )
+
+    return records
 
 
 def find_category_for_theme(theme: str) -> str:
@@ -767,8 +1045,208 @@ def render_financial_statements(ticker: str) -> None:
     render_financial_statement("현금흐름표", statements.get("cashflow"))
 
 
+def parse_korean_news_age_days(date_text: str) -> int | None:
+    cleaned = " ".join(str(date_text).replace(".", ". ").split())
+    today = datetime.now().date()
+
+    if "방금" in cleaned or "분 전" in cleaned or "시간 전" in cleaned:
+        return 0
+
+    relative_units = {
+        "일 전": 1,
+        "주 전": 7,
+        "개월 전": 30,
+        "년 전": 365,
+    }
+    for unit, multiplier in relative_units.items():
+        if unit in cleaned:
+            number_text = cleaned.split(unit)[0].split()[-1]
+            if number_text.isdigit():
+                return int(number_text) * multiplier
+
+    date_match = re.search(r"(\d{4})[.\-]\s*(\d{1,2})[.\-]\s*(\d{1,2})", cleaned)
+    if not date_match:
+        return None
+
+    normalized_date = "-".join(
+        [
+            date_match.group(1),
+            date_match.group(2).zfill(2),
+            date_match.group(3).zfill(2),
+        ]
+    )
+    for fmt in ("%Y-%m-%d",):
+        try:
+            parsed_date = datetime.strptime(normalized_date, fmt).date()
+            return (today - parsed_date).days
+        except ValueError:
+            continue
+
+    return None
+
+
+def build_domestic_news_item(
+    title: str,
+    publisher: str,
+    link: str,
+    date_text: str = "",
+    source: str = "국내 뉴스",
+) -> dict[str, str] | None:
+    if not title or not link.startswith("http"):
+        return None
+
+    age_days = parse_korean_news_age_days(date_text)
+    if age_days is not None and age_days > KOREAN_NEWS_LOOKBACK_DAYS:
+        return None
+
+    return {
+        "title": " ".join(title.split()),
+        "publisher": publisher or source,
+        "link": link,
+        "date": date_text,
+        "source": source,
+        "language": "ko",
+    }
+
+
+def fetch_naver_news(company_name: str) -> list[dict[str, str]]:
+    try:
+        response = requests.get(
+            "https://search.naver.com/search.naver",
+            params={
+                "where": "news",
+                "query": f"{company_name} 주가 실적",
+                "sort": "1",
+            },
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+                )
+            },
+            timeout=6,
+        )
+        response.raise_for_status()
+    except Exception:
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    news_items = []
+    for link_tag in soup.select("a.news_tit"):
+        container = link_tag.find_parent("div", class_="news_area")
+        publisher = ""
+        date_text = ""
+        if container is not None:
+            publisher_tag = container.select_one(".info_group a.info.press")
+            publisher = publisher_tag.get_text(" ", strip=True) if publisher_tag else ""
+            info_tags = container.select(".info_group span.info")
+            for info_tag in info_tags:
+                candidate = info_tag.get_text(" ", strip=True)
+                if "전" in candidate or "." in candidate:
+                    date_text = candidate
+                    break
+
+        item = build_domestic_news_item(
+            title=link_tag.get("title") or link_tag.get_text(" ", strip=True),
+            publisher=publisher,
+            link=link_tag.get("href", ""),
+            date_text=date_text,
+            source="네이버뉴스",
+        )
+        if item:
+            news_items.append(item)
+        if len(news_items) >= 5:
+            break
+
+    return news_items
+
+
+def fetch_daum_news(company_name: str) -> list[dict[str, str]]:
+    try:
+        response = requests.get(
+            "https://search.daum.net/search",
+            params={
+                "w": "news",
+                "q": f"{company_name} 주가 실적",
+                "sort": "recency",
+            },
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+                )
+            },
+            timeout=6,
+        )
+        response.raise_for_status()
+    except Exception:
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    news_items = []
+    selectors = "a.f_link_b, a.tit_main, a.link_txt, strong.tit-g a, .item-title a"
+    for link_tag in soup.select(selectors):
+        title = link_tag.get_text(" ", strip=True)
+        link = link_tag.get("href", "")
+        if not title or not link.startswith("http"):
+            continue
+
+        container = link_tag.find_parent(["li", "div"])
+        publisher = ""
+        date_text = ""
+        if container is not None:
+            text_bits = [
+                bit.get_text(" ", strip=True)
+                for bit in container.select(".txt_info, .f_nb, .gem-subinfo, span")
+            ]
+            for bit in text_bits:
+                if not publisher and bit and "전" not in bit and "." not in bit:
+                    publisher = bit
+                if not date_text and ("전" in bit or "." in bit):
+                    date_text = bit
+
+        item = build_domestic_news_item(
+            title=title,
+            publisher=publisher,
+            link=link,
+            date_text=date_text,
+            source="다음뉴스",
+        )
+        if item:
+            news_items.append(item)
+        if len(news_items) >= 5:
+            break
+
+    return news_items
+
+
+@st.cache_data
+def load_domestic_ticker_news(ticker: str) -> list[dict[str, str]]:
+    company_name = get_company_search_name(ticker)
+    combined_news = fetch_naver_news(company_name)
+
+    if len(combined_news) < 3:
+        combined_news.extend(fetch_daum_news(company_name))
+
+    unique_news = []
+    seen_links = set()
+    for item in combined_news:
+        link = item["link"]
+        if link in seen_links:
+            continue
+        seen_links.add(link)
+        unique_news.append(item)
+        if len(unique_news) >= 5:
+            break
+
+    return unique_news
+
+
 @st.cache_data
 def load_ticker_news(ticker: str) -> list[dict[str, str]]:
+    if is_korean_ticker(ticker):
+        return load_domestic_ticker_news(ticker)
+
     try:
         news_items = yf.Ticker(ticker).news or []
     except Exception:
@@ -796,6 +1274,9 @@ def load_ticker_news(ticker: str) -> list[dict[str, str]]:
                 "title": str(title),
                 "publisher": str(publisher or "언론사 정보 없음"),
                 "link": str(link),
+                "date": "",
+                "source": "Yahoo Finance",
+                "language": "en",
             }
         )
 
@@ -872,20 +1353,36 @@ def fetch_article_summary_ko(url: str) -> str:
             break
 
     summary = ". ".join(sentences) or article_text[:700]
+    if has_hangul(summary):
+        return summary
     return translate_text_to_korean(summary)
 
 
 def render_news_item(news: dict[str, str]) -> None:
-    translated_title = translate_text_to_korean(news["title"])
+    title = news["title"] if news.get("language") == "ko" else translate_text_to_korean(news["title"])
     summary_ko = fetch_article_summary_ko(news["link"])
+    date_text = news.get("date", "")
+    source_text = news.get("source", "")
 
-    st.markdown(f"- [{translated_title}]({news['link']})")
-    st.markdown(f"  - 언론사: `{news['publisher']}`")
+    st.markdown(f"- [{title}]({news['link']})")
+    meta_parts = [f"언론사: `{news['publisher']}`"]
+    if date_text:
+        meta_parts.append(f"게시 시점: `{date_text}`")
+    if source_text:
+        meta_parts.append(f"출처: `{source_text}`")
+    st.markdown(f"  - {' · '.join(meta_parts)}")
     st.markdown(f"  - 요약: {summary_ko}")
 
 
 def render_recent_news(ticker: str) -> None:
     st.subheader("📰 최근 관련 뉴스 헤드라인")
+    if is_korean_ticker(ticker):
+        st.caption(
+            f"한국 종목은 네이버뉴스를 우선 검색하고, 부족하면 다음뉴스로 보강합니다. "
+            f"기준은 최근 {KOREAN_NEWS_LOOKBACK_DAYS}일 이내 검색 결과입니다."
+        )
+    else:
+        st.caption("해외 종목은 Yahoo Finance 뉴스 데이터를 기준으로 표시합니다.")
 
     news_items = load_ticker_news(ticker)
     if not news_items:
@@ -991,6 +1488,26 @@ def load_monthly_price_data(ticker: str):
 
     if data.empty:
         st.warning(f"{ticker}의 상장 이후 월봉 데이터가 비어 있습니다.")
+        return None
+
+    return data
+
+
+@st.cache_data
+def load_one_year_daily_price_data(ticker: str):
+    try:
+        data = yf.download(
+            ticker,
+            period="1y",
+            interval="1d",
+            progress=False,
+            auto_adjust=False,
+            threads=False,
+        )
+    except Exception:
+        return None
+
+    if data is None or data.empty:
         return None
 
     return data
@@ -1137,10 +1654,10 @@ def format_market_value(ticker: str, price: float | None) -> str:
     return f"{price:,.2f}"
 
 
-def render_home_dashboard(ticker_records: list[dict[str, str]]) -> None:
+def render_home_dashboard(screening_records: list[dict[str, str | int | None]]) -> None:
     st.markdown("# 이준섭을 숭배하라")
     st.markdown("## 오늘의 시장 대시보드")
-    st.caption("시장 방향, 딥 밸류 후보, 하락률 상위 종목을 한 번에 확인합니다.")
+    st.caption("시장 방향, 테마별 하락 사이클, 딥 밸류 후보를 한 번에 확인합니다.")
 
     st.subheader("🌐 글로벌 시장 동향")
     market_tickers = {
@@ -1162,24 +1679,40 @@ def render_home_dashboard(ticker_records: list[dict[str, str]]) -> None:
         )
 
     st.subheader("🚨 오늘의 딥 밸류(Deep Value) 현황")
-    records = tuple((record["ticker"], record["theme"]) for record in ticker_records)
+    records = tuple(
+        (
+            str(record["ticker"]),
+            str(record["theme"]),
+            str(record["source"]),
+            record["leader_rank"],
+        )
+        for record in screening_records
+    )
     with st.spinner("전체 종목의 딥 밸류 조건을 점검하는 중입니다."):
         radar_results = screen_contrarian_candidates(records)
     count = len(radar_results)
     st.info(
         f"현재 역발상 매수 조건에 부합하는 숨은 우량주가 **{count}개** 포착되었습니다. "
-        "좌측 메뉴의 '매수 레이더'에서 확인하세요!"
+        "테마 평균 하락도가 깊은 구간부터 좌측 메뉴의 '매수 레이더'에서 확인하세요!"
     )
 
     radar_top10 = st.session_state.get("radar_drawdown_top10", pd.DataFrame())
+    theme_drawdown_summary = st.session_state.get(
+        "theme_drawdown_summary",
+        pd.DataFrame(),
+    )
     overview_col, drawdown_col = st.columns([1, 1.4])
     with overview_col:
         st.markdown("### 🎯 후보군 요약")
         st.metric("조건 통과 후보", f"{count}개")
         st.metric(
-            "하락률 TOP 10 후보",
-            f"{len(radar_top10)}개" if not radar_top10.empty else "정보 없음",
-            delta="조건 미충족 종목까지 포함",
+            "하락 테마 후보",
+            (
+                f"{(theme_drawdown_summary['테마 평균 하락률(%)'] <= -20).sum()}개"
+                if not theme_drawdown_summary.empty
+                else "정보 없음"
+            ),
+            delta="대표 Top3 평균 -20% 이하",
             delta_color="off",
         )
         if not radar_results.empty:
@@ -1191,14 +1724,14 @@ def render_home_dashboard(ticker_records: list[dict[str, str]]) -> None:
             )
             st.dataframe(theme_counts, width="stretch", hide_index=True, height=220)
         else:
-            st.caption("조건 통과 후보가 없으면 오른쪽 하락률 상위 후보부터 점검하세요.")
+            st.caption("조건 통과 후보가 없으면 테마 평균 하락도부터 점검하세요.")
 
     with drawdown_col:
         st.markdown("### 📉 고점 대비 하락률 TOP 후보")
         if radar_top10.empty:
             st.info("하락률 후보 데이터를 계산하지 못했습니다.")
         else:
-            st.caption("표에서 종목 행을 선택하면 개별 종목 분석 화면으로 이동합니다.")
+            st.caption("앱 편입 종목 행을 선택하면 개별 종목 분석 화면으로 이동합니다.")
             top10_event = st.dataframe(
                 radar_top10.head(10),
                 width="stretch",
@@ -1206,6 +1739,7 @@ def render_home_dashboard(ticker_records: list[dict[str, str]]) -> None:
                 height=360,
                 column_order=[
                     "종목명(티커)",
+                    "종목군",
                     "소속 테마",
                     "현재가",
                     "고점 대비 하락률(%)",
@@ -1223,6 +1757,35 @@ def render_home_dashboard(ticker_records: list[dict[str, str]]) -> None:
                 if selected_ticker:
                     st.session_state.pending_analysis_ticker = selected_ticker
                     st.rerun()
+
+    st.markdown("### 🧭 소분류별 테마 평균 하락도")
+    if theme_drawdown_summary.empty:
+        st.info("테마 평균 하락도 데이터를 계산하지 못했습니다.")
+    else:
+        st.caption("각 소분류 대표 Top3의 평균 하락률로 테마 사이클의 식은 정도를 봅니다.")
+        theme_event = st.dataframe(
+            theme_drawdown_summary,
+            width="stretch",
+            hide_index=True,
+            height=420,
+            column_order=[
+                "소속 테마",
+                "테마 평균 하락률(%)",
+                "평균 20일 박스폭(%)",
+                "사이클 상태",
+                "관찰 대표주 수",
+                "최대 하락 대표주",
+                "최대 하락률(%)",
+            ],
+            selection_mode="single-row",
+            on_select="rerun",
+            key="home_theme_drawdown_summary_table",
+        )
+        selected_theme_rows = theme_event.selection.rows
+        if selected_theme_rows:
+            selected_theme = theme_drawdown_summary.iloc[selected_theme_rows[0]].get("테마 코드")
+            if selected_theme:
+                render_theme_peer_price_charts(str(selected_theme))
 
     st.subheader("빠른 이동")
     guide_left, guide_right = st.columns(2)
@@ -1345,7 +1908,7 @@ def load_screening_profile(ticker: str) -> dict:
 
     return {
         "display_name": format_ticker_name(ticker)
-        if ticker in COMPANY_NAME_MAP
+        if format_ticker_name(ticker) != ticker
         else info.get("shortName") or info.get("longName") or ticker,
         "per": metrics["per"],
         "dividend_yield": metrics["dividend_yield"],
@@ -1353,7 +1916,7 @@ def load_screening_profile(ticker: str) -> dict:
 
 
 def screen_contrarian_candidates(
-    records: tuple[tuple[str, str], ...],
+    records: tuple[tuple[str, str] | tuple[str, str, str, int | None], ...],
     show_progress: bool = False,
 ) -> pd.DataFrame:
     candidates = []
@@ -1363,7 +1926,12 @@ def screen_contrarian_candidates(
     status_box = st.empty() if show_progress else None
     started_at = time.monotonic()
 
-    for index, (ticker, theme) in enumerate(records, start=1):
+    for index, record in enumerate(records, start=1):
+        ticker = record[0]
+        theme = record[1]
+        source = record[2] if len(record) >= 3 else "앱 편입 종목"
+        leader_rank = record[3] if len(record) >= 4 else None
+
         if status_box is not None:
             status_box.caption(
                 f"{index}/{total_count} 점검 중: {ticker} · 현재 후보 {len(candidates)}개"
@@ -1384,6 +1952,8 @@ def screen_contrarian_candidates(
             {
                 "ticker": ticker,
                 "theme": theme,
+                "source": source,
+                "leader_rank": leader_rank,
                 "current_price": stats["current_price"],
                 "drawdown": stats["drawdown"],
                 "box_range": stats["box_range"],
@@ -1400,7 +1970,9 @@ def screen_contrarian_candidates(
             {
                 "티커": ticker,
                 "종목명(티커)": f"{display_name} ({ticker})" if display_name != ticker else ticker,
+                "종목군": source,
                 "소속 테마": format_theme_name(theme),
+                "대표 순위": leader_rank,
                 "현재가": round(stats["current_price"], 2),
                 "고점 대비 하락률(%)": round(stats["drawdown"], 2),
                 "PER": round(profile["per"], 2) if profile["per"] is not None else None,
@@ -1433,7 +2005,9 @@ def screen_contrarian_candidates(
                     if display_name != row["ticker"]
                     else row["ticker"]
                 ),
+                "종목군": row["source"],
                 "소속 테마": format_theme_name(row["theme"]),
+                "대표 순위": row["leader_rank"],
                 "현재가": round(row["current_price"], 2),
                 "고점 대비 하락률(%)": round(row["drawdown"], 2),
                 "20일 박스폭(%)": round(row["box_range"], 2),
@@ -1450,7 +2024,9 @@ def screen_contrarian_candidates(
         columns=[
             "티커",
             "종목명(티커)",
+            "종목군",
             "소속 테마",
+            "대표 순위",
             "현재가",
             "고점 대비 하락률(%)",
             "20일 박스폭(%)",
@@ -1459,12 +2035,73 @@ def screen_contrarian_candidates(
         ],
     )
 
+    theme_groups: dict[str, list[dict]] = {}
+    for row in drawdown_rows:
+        if row["leader_rank"] is None:
+            continue
+        theme_groups.setdefault(row["theme"], []).append(row)
+
+    theme_summaries = []
+    for theme, rows in theme_groups.items():
+        valid_rows = [row for row in rows if row["drawdown"] is not None]
+        if not valid_rows:
+            continue
+
+        average_drawdown = sum(row["drawdown"] for row in valid_rows) / len(valid_rows)
+        average_box_range = sum(row["box_range"] for row in valid_rows) / len(valid_rows)
+        deepest_row = min(valid_rows, key=lambda row: row["drawdown"])
+        deepest_profile = load_screening_profile(deepest_row["ticker"])
+        deepest_name = deepest_profile["display_name"]
+        deepest_label = (
+            f"{deepest_name} ({deepest_row['ticker']})"
+            if deepest_name != deepest_row["ticker"]
+            else deepest_row["ticker"]
+        )
+
+        if average_drawdown <= -25 and average_box_range <= 10:
+            cycle_status = "역발상 관심권"
+        elif average_drawdown <= -20:
+            cycle_status = "하락 사이클 진입"
+        elif average_drawdown <= -10:
+            cycle_status = "조정 구간"
+        else:
+            cycle_status = "상대적 강세"
+
+        theme_summaries.append(
+            {
+                "테마 코드": theme,
+                "소속 테마": format_theme_name(theme),
+                "테마 평균 하락률(%)": round(average_drawdown, 2),
+                "평균 20일 박스폭(%)": round(average_box_range, 2),
+                "사이클 상태": cycle_status,
+                "관찰 대표주 수": len(valid_rows),
+                "최대 하락 대표주": deepest_label,
+                "최대 하락률(%)": round(deepest_row["drawdown"], 2),
+            }
+        )
+
+    st.session_state.theme_drawdown_summary = pd.DataFrame(
+        sorted(theme_summaries, key=lambda row: row["테마 평균 하락률(%)"]),
+        columns=[
+            "테마 코드",
+            "소속 테마",
+            "테마 평균 하락률(%)",
+            "평균 20일 박스폭(%)",
+            "사이클 상태",
+            "관찰 대표주 수",
+            "최대 하락 대표주",
+            "최대 하락률(%)",
+        ],
+    )
+
     return pd.DataFrame(
         candidates,
         columns=[
             "티커",
             "종목명(티커)",
+            "종목군",
             "소속 테마",
+            "대표 순위",
             "현재가",
             "고점 대비 하락률(%)",
             "PER",
@@ -1523,6 +2160,113 @@ def render_finance_glossary() -> None:
             영업이익에서 세금, 이자 등 모든 비용을 빼고 최종적으로 남은 진짜 이익.
             """
         )
+
+
+def render_auth_screen() -> None:
+    apply_design_system_styles()
+
+    _, auth_col, _ = st.columns([1, 1.15, 1])
+    with auth_col:
+        st.title("📈 딥 밸류 우량주 스크리너")
+        st.caption("승인된 회원만 대시보드에 접속할 수 있습니다.")
+
+        login_tab, signup_tab = st.tabs(["로그인", "회원가입"])
+
+        with login_tab:
+            with st.form("login_form", clear_on_submit=False):
+                user_id = st.text_input("아이디", key="login_user_id")
+                password = st.text_input("비밀번호", type="password", key="login_password")
+                login_submitted = st.form_submit_button("로그인", use_container_width=True)
+
+            if login_submitted:
+                users = load_users()
+                profile = users.get(user_id.strip())
+                if not profile or profile.get("password") != password:
+                    st.error("아이디 또는 비밀번호가 올바르지 않습니다.")
+                elif not profile.get("approved", False):
+                    st.warning("아직 관리자 승인 대기 중인 계정입니다.")
+                else:
+                    st.session_state["logged_in"] = True
+                    st.session_state["current_user"] = user_id.strip()
+                    rerun_app()
+
+        with signup_tab:
+            with st.form("signup_form", clear_on_submit=True):
+                name = st.text_input("이름", key="signup_name")
+                new_user_id = st.text_input("아이디", key="signup_user_id")
+                new_password = st.text_input("비밀번호", type="password", key="signup_password")
+                confirm_password = st.text_input(
+                    "비밀번호 확인",
+                    type="password",
+                    key="signup_password_confirm",
+                )
+                signup_submitted = st.form_submit_button("가입 요청", use_container_width=True)
+
+            if signup_submitted:
+                name = name.strip()
+                new_user_id = new_user_id.strip()
+                users = load_users()
+
+                if not all([name, new_user_id, new_password, confirm_password]):
+                    st.error("모든 칸을 입력해 주세요.")
+                elif new_password != confirm_password:
+                    st.error("비밀번호와 비밀번호 확인이 일치하지 않습니다.")
+                elif new_user_id in users:
+                    st.error("이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.")
+                else:
+                    users[new_user_id] = {
+                        "name": name,
+                        "password": new_password,
+                        "approved": False,
+                    }
+                    save_users(users)
+                    st.success(
+                        "가입 요청이 완료되었습니다! 관리자(legolego123@naver.com)의 승인 후 로그인 가능합니다."
+                    )
+
+
+def render_member_approval_admin() -> None:
+    st.subheader("👑 회원 승인 관리")
+    st.caption("최고관리자만 접근할 수 있는 가입 승인 화면입니다.")
+
+    users = load_users()
+    member_rows = [
+        {
+            "이름": profile.get("name", ""),
+            "아이디": user_id,
+            "현재 승인 상태": "승인됨" if profile.get("approved", False) else "승인 대기",
+        }
+        for user_id, profile in users.items()
+        if user_id != SUPER_ADMIN_ID
+    ]
+
+    if not member_rows:
+        st.info("현재 승인 관리 대상 회원이 없습니다.")
+        return
+
+    st.dataframe(pd.DataFrame(member_rows), width="stretch", hide_index=True)
+    st.divider()
+
+    for user_id, profile in users.items():
+        if user_id == SUPER_ADMIN_ID:
+            continue
+
+        col_name, col_status = st.columns([3, 2], vertical_alignment="center")
+        with col_name:
+            st.markdown(f"**{profile.get('name', '')}**")
+            st.caption(user_id)
+        with col_status:
+            approval_key = f"approval_toggle_{user_id}"
+            approved = st.checkbox(
+                "승인",
+                value=bool(profile.get("approved", False)),
+                key=approval_key,
+            )
+            if approved != bool(profile.get("approved", False)):
+                users[user_id]["approved"] = approved
+                save_users(users)
+                st.success(f"{profile.get('name', user_id)} 계정 승인 상태를 저장했습니다.")
+                rerun_app()
 
 
 def render_daily_candlestick(data, ticker: str) -> None:
@@ -1598,9 +2342,149 @@ def render_monthly_line(data, ticker: str) -> None:
     st.plotly_chart(fig, width="stretch")
 
 
+def build_yearly_ohlc(data) -> pd.DataFrame | None:
+    open_price = get_price_column(data, "Open")
+    high = get_price_column(data, "High")
+    low = get_price_column(data, "Low")
+    close = get_price_column(data, "Close")
+
+    if any(series is None or series.empty for series in [open_price, high, low, close]):
+        return None
+
+    yearly = pd.DataFrame(
+        {
+            "Open": open_price,
+            "High": high,
+            "Low": low,
+            "Close": close,
+        }
+    ).dropna()
+
+    if yearly.empty:
+        return None
+
+    return yearly.resample("YE").agg(
+        {
+            "Open": "first",
+            "High": "max",
+            "Low": "min",
+            "Close": "last",
+        }
+    ).dropna()
+
+
+def render_compact_daily_candlestick(data, ticker: str) -> None:
+    if go is None:
+        st.error("Plotly가 설치되지 않아 차트를 표시할 수 없습니다.")
+        return
+
+    open_price = get_price_column(data, "Open")
+    high = get_price_column(data, "High")
+    low = get_price_column(data, "Low")
+    close = get_price_column(data, "Close")
+
+    if any(series is None or series.empty for series in [open_price, high, low, close]):
+        st.info("일봉 차트를 그릴 수 있는 데이터가 부족합니다.")
+        return
+
+    fig = go.Figure(
+        data=[
+            go.Candlestick(
+                x=data.index,
+                open=open_price,
+                high=high,
+                low=low,
+                close=close,
+                name=ticker,
+                increasing_line_color="#00a86b",
+                decreasing_line_color="#e64b3c",
+            )
+        ]
+    )
+    fig.update_layout(
+        height=330,
+        margin=dict(l=8, r=8, t=36, b=8),
+        title=f"{format_ticker_label(ticker)} 최근 1년 일봉",
+        xaxis_title=None,
+        yaxis_title=None,
+        xaxis_rangeslider_visible=False,
+        hovermode="x unified",
+    )
+    st.plotly_chart(fig, width="stretch")
+
+
+def render_yearly_candlestick(data, ticker: str) -> None:
+    if go is None:
+        st.error("Plotly가 설치되지 않아 차트를 표시할 수 없습니다.")
+        return
+
+    yearly = build_yearly_ohlc(data)
+    if yearly is None or yearly.empty:
+        st.info("연봉 차트를 그릴 수 있는 데이터가 부족합니다.")
+        return
+
+    fig = go.Figure(
+        data=[
+            go.Candlestick(
+                x=yearly.index.year.astype(str),
+                open=yearly["Open"],
+                high=yearly["High"],
+                low=yearly["Low"],
+                close=yearly["Close"],
+                name=ticker,
+                increasing_line_color="#00a86b",
+                decreasing_line_color="#e64b3c",
+            )
+        ]
+    )
+    fig.update_layout(
+        height=330,
+        margin=dict(l=8, r=8, t=36, b=8),
+        title=f"{format_ticker_label(ticker)} 상장 이후 연봉",
+        xaxis_title=None,
+        yaxis_title=None,
+        xaxis_rangeslider_visible=False,
+        hovermode="x unified",
+    )
+    st.plotly_chart(fig, width="stretch")
+
+
+def render_theme_peer_price_charts(theme: str) -> None:
+    peer_tickers = TOP_THEME_PEERS.get(theme, [])[:3]
+    if not peer_tickers:
+        st.info("이 테마의 대표 Top3 기업 목록이 없습니다.")
+        return
+
+    st.markdown(f"### 📈 {format_theme_name(theme)} 대표 Top3 가격 흐름")
+    st.caption("선택한 소분류 테마의 대표 기업 3개를 일봉과 연봉으로 같이 봅니다.")
+
+    for ticker in peer_tickers:
+        with st.expander(format_ticker_label(ticker), expanded=True):
+            daily_col, yearly_col = st.columns(2)
+            with daily_col:
+                daily_data = load_one_year_daily_price_data(ticker)
+                if daily_data is None:
+                    st.info(f"{format_ticker_label(ticker)}의 최근 1년 일봉 데이터가 없습니다.")
+                else:
+                    render_compact_daily_candlestick(daily_data, ticker)
+
+            with yearly_col:
+                monthly_data = load_monthly_price_data(ticker)
+                if monthly_data is None:
+                    st.info(f"{format_ticker_label(ticker)}의 연봉 데이터가 없습니다.")
+                else:
+                    render_yearly_candlestick(monthly_data, ticker)
+
+
 def main() -> None:
+    load_users()
+    if not st.session_state.get("logged_in"):
+        render_auth_screen()
+        return
+
     sectors = load_sectors()
     ticker_records = flatten_tickers(sectors)
+    screening_records = build_screening_records(sectors)
     label_to_record = {record["label"]: record for record in ticker_records}
     ticker_to_record = {record["ticker"]: record for record in ticker_records}
     search_labels = list(label_to_record.keys())
@@ -1680,9 +2564,24 @@ def main() -> None:
 
     apply_design_system_styles()
 
+    current_user = st.session_state.get("current_user", "")
+    users = load_users()
+    current_name = users.get(current_user, {}).get("name", current_user)
+    st.sidebar.caption(f"{current_name}님 접속 중")
+    if st.sidebar.button("로그아웃", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state.pop("current_user", None)
+        rerun_app()
+
+    menu_items = ["🏠 홈 (대시보드 요약)", "📊 개별 종목 분석", "🔍 역발상 매수 레이더"]
+    if current_user == SUPER_ADMIN_ID:
+        menu_items.append("👑 회원 승인 관리")
+    if st.session_state.get("page_mode") not in menu_items:
+        st.session_state.page_mode = menu_items[0]
+
     page_mode = st.sidebar.radio(
         "메뉴",
-        ["🏠 홈 (대시보드 요약)", "📊 개별 종목 분석", "🔍 역발상 매수 레이더"],
+        menu_items,
         key="page_mode",
     )
 
@@ -1695,13 +2594,17 @@ def main() -> None:
             st.cache_data.clear()
             st.session_state.pop("radar_results", None)
             st.session_state.pop("radar_drawdown_top10", None)
+            st.session_state.pop("theme_drawdown_summary", None)
             try:
                 st.rerun()
             except AttributeError:
                 st.experimental_rerun()
 
-    if page_mode == "🏠 홈 (대시보드 요약)":
-        render_home_dashboard(ticker_records)
+    if page_mode == "👑 회원 승인 관리":
+        render_member_approval_admin()
+
+    elif page_mode == "🏠 홈 (대시보드 요약)":
+        render_home_dashboard(screening_records)
 
     elif page_mode == "📊 개별 종목 분석":
         if "global_search" not in st.session_state:
@@ -1807,13 +2710,23 @@ def main() -> None:
     else:
         st.subheader("🔍 역발상 매수 레이더")
         st.info(
-            f"버튼을 누르면 {len(ticker_records)}개 전 종목을 스크리닝하여 "
-            "낙폭 과대 후 횡보 중인 종목을 찾습니다. 진행률이 아래에 표시되며, "
+            f"버튼을 누르면 기존 편입 종목과 소분류별 대표 Top3를 합친 "
+            f"{len(screening_records)}개 종목을 스크리닝하여 "
+            "소분류별 테마 평균 하락도와 그 안의 역발상 후보를 함께 찾습니다. "
+            "진행률이 아래에 표시되며, "
             "한 번 조회된 종목 데이터는 수동 업데이트 전까지 캐시에 보관됩니다."
         )
 
         if st.button("레이더 가동 (전체 종목 스크리닝)", type="primary"):
-            records = tuple((record["ticker"], record["theme"]) for record in ticker_records)
+            records = tuple(
+                (
+                    str(record["ticker"]),
+                    str(record["theme"]),
+                    str(record["source"]),
+                    record["leader_rank"],
+                )
+                for record in screening_records
+            )
             with st.spinner("전체 종목의 낙폭과 횡보 상태를 점검하는 중입니다."):
                 st.session_state.radar_results = screen_contrarian_candidates(
                     records,
@@ -1824,21 +2737,51 @@ def main() -> None:
             results = st.session_state.radar_results
             radar_column_order = [
                 "종목명(티커)",
+                "종목군",
                 "소속 테마",
+                "대표 순위",
                 "현재가",
                 "고점 대비 하락률(%)",
                 "20일 박스폭(%)",
                 "PER",
                 "배당수익률(%)",
             ]
+            theme_summary = st.session_state.get("theme_drawdown_summary", pd.DataFrame())
+            if not theme_summary.empty:
+                st.subheader("🧭 소분류별 테마 평균 하락도")
+                st.caption("각 소분류 대표 Top3의 평균 하락률로 테마 사이클의 식은 정도를 봅니다.")
+                theme_event = st.dataframe(
+                    theme_summary,
+                    width="stretch",
+                    hide_index=True,
+                    height=480,
+                    column_order=[
+                        "소속 테마",
+                        "테마 평균 하락률(%)",
+                        "평균 20일 박스폭(%)",
+                        "사이클 상태",
+                        "관찰 대표주 수",
+                        "최대 하락 대표주",
+                        "최대 하락률(%)",
+                    ],
+                    selection_mode="single-row",
+                    on_select="rerun",
+                    key="radar_theme_drawdown_summary_table",
+                )
+                selected_theme_rows = theme_event.selection.rows
+                if selected_theme_rows:
+                    selected_theme = theme_summary.iloc[selected_theme_rows[0]].get("테마 코드")
+                    if selected_theme:
+                        render_theme_peer_price_charts(str(selected_theme))
+
             if results.empty:
                 st.warning("현재 역발상 매수 조건에 부합하는 종목이 없습니다.")
                 top10 = st.session_state.get("radar_drawdown_top10", pd.DataFrame())
                 if not top10.empty:
-                    st.subheader("📉 고점 대비 하락률 TOP 10")
+                    st.subheader("📉 참고용 개별 종목 하락률 TOP 10")
                     st.caption(
-                        "조건 2개를 모두 통과하지는 못했지만, 전체 종목 중 하락폭이 가장 큰 순서입니다. "
-                        "종목 행을 선택하면 개별 종목 분석 화면으로 이동합니다."
+                        "테마 평균 하락도를 본 뒤 확인할 참고용 개별 종목 목록입니다. "
+                        "앱 편입 종목 행을 선택하면 개별 종목 분석 화면으로 이동합니다."
                     )
                     top10_event = st.dataframe(
                         top10,
@@ -1857,14 +2800,16 @@ def main() -> None:
                             st.rerun()
             else:
                 st.success(f"{len(results)}개 종목이 역발상 매수 조건을 통과했습니다.")
-                st.caption("종목 행을 선택하면 개별 종목 분석 화면으로 이동합니다.")
+                st.caption("앱 편입 종목 행을 선택하면 개별 종목 분석 화면으로 이동합니다.")
                 results_event = st.dataframe(
                     results,
                     width="stretch",
                     hide_index=True,
                     column_order=[
                         "종목명(티커)",
+                        "종목군",
                         "소속 테마",
+                        "대표 순위",
                         "현재가",
                         "고점 대비 하락률(%)",
                         "PER",
